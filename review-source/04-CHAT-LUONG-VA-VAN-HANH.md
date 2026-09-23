@@ -6,7 +6,8 @@
 
 ### 1.1 Điểm làm tốt
 
-- **Kỷ luật công cụ:** TypeScript ở chế độ `strict` cho cả hai phần. ESLint backend đặt `no-explicit-any` ở mức `error`. Prettier dùng chung một cấu hình, VS Code tự format khi lưu. Kết quả là toàn bộ code **không có `any` nào**. Đây là mức kỷ luật tốt so với giai đoạn học hiện tại.
+- **Kỷ luật công cụ:** backend bật TypeScript `strict`; ESLint ở cả hai phía cấm `any` tường minh. Prettier dùng chung một cấu hình, VS Code tự format khi lưu. Kết quả là code **không có chữ `any` nào**. Đây là mức kỷ luật tốt so với giai đoạn học hiện tại.
+  - **Đính chính (24/09/2026):** báo cáo lần 1 ghi "strict cho cả hai phần" là **chưa đúng**. `seatify-frontend/tsconfig.app.json` **không bật `strict`** (CODE-04). Ngoài ra `fetchClient` trả về `Promise<any>` ngầm định, nên dữ liệu API ở frontend thực chất vẫn là `any` (ARCH-16).
 - **Đặt tên** rõ ràng, nhất quán bằng tiếng Anh (`holdSeats`, `getBookedSeats`, `confirmPaymentSuccess`). Thông báo cho người dùng viết bằng tiếng Việt.
 - **Bắt lỗi an toàn về kiểu:** dùng `error instanceof Error` thay vì `catch (e: any)`.
 - **Prisma `select`** chỉ lấy đúng các cột cần dùng (`be/services/booking.service.ts:116-144, 156-175`).
@@ -40,7 +41,7 @@
 - **Mức độ:** Low · **Độ chắc chắn:** Đã xác nhận
 - `fe/pages/BookingPage.tsx` (666 dòng) gộp chung: gọi API, tính giá, quy tắc chọn vé, popup HSSV, vẽ sơ đồ ghế (logic ghế đôi và ghế đơn lặp lại cấu trúc gần giống nhau ở các dòng 174-246), thanh tóm tắt và 2 modal.
 - `interface Movie` được khai báo lại ở 7 file (`HomePage`, `SearchPage`, `MovieListPage`, `HeroBanner`, `AdminMoviePage`, `AdminShowtimePage`, `services/movie.service.ts`) và các bản không giống nhau. Ví dụ `posterUrl` ở chỗ là `string`, ở chỗ là `string | null`.
-- **Hướng xử lý:** tách `BookingPage` thành `TicketSelector`, `SeatMap`, `SeatButton`, `BookingSummary`, và gom logic vào hook `useSeatSelection`. Gom các type dùng chung vào `fe/types/`. Nên làm **sau** ARCH-02, vì khi đó sơ đồ ghế được vẽ từ dữ liệu API và phần code vẽ ghế sẽ gọn đi đáng kể.
+- **Hướng xử lý:** tách `BookingPage` thành `TicketSelector`, `SeatMap`, `SeatButton`, `BookingSummary`, và gom logic vào hook `useSeatSelection`. Nên làm **sau** ARCH-02, vì khi đó sơ đồ ghế được vẽ từ dữ liệu API và phần code vẽ ghế sẽ gọn đi đáng kể. Phần type bị lặp được phân tích đầy đủ ở ARCH-16, còn cấu trúc feature/hook ở ARCH-15 (xem `08-KIEN-TRUC-FRONTEND-DE-XUAT.md`).
 
 #### CODE-03: Comment mang giọng hội thoại và comment sai sự thật
 
@@ -53,11 +54,13 @@
   - "Mặc định chọn ngày 30/07 để có data" (`fe/pages/MovieDetailPage.tsx:99`), nhưng code thực tế chọn ngày hôm nay.
   - "ÉP TRÌNH DUYỆT CHUYỂN HƯỚNG SANG VNPAY" (`fe/pages/CheckoutPage.tsx:114`), nhưng thực tế chuyển sang Stripe.
 - **Nhận định:** kiểu comment "đã vá / đã xóa / bỏ chữ any đi vì…" là dấu vết của code được **dán từ một cuộc hội thoại** (với AI hoặc người hướng dẫn) mà chưa được đọc lại. Dùng AI không có gì sai. Vấn đề là comment khẳng định những điều code chưa đảm bảo, khiến người đọc sau (kể cả chính em) tin nhầm.
-- **Hướng xử lý:** comment nên trả lời câu hỏi **"vì sao"** (ví dụ vì sao cần `FOR UPDATE`), không kể lại lịch sử sửa code (việc đó thuộc về commit message). Rà lại toàn bộ comment trước khi nộp bài.
+- **Hướng xử lý:** comment nên trả lời câu hỏi **"vì sao"** (ví dụ vì sao cần `FOR UPDATE`), không kể lại lịch sử sửa code (việc đó thuộc về commit message). Rà lại toàn bộ comment trước khi nộp bài. Phân loại đầy đủ và bộ nguyên tắc comment ở `09-CLEAN-CODE-VA-QUY-UOC.md`, mục 3.
 
 ---
 
 ## 2. Kiểm thử
+
+> Cập nhật 24/09/2026: phần này được mở rộng thành `11-KIEM-THU.md`, gồm ma trận test theo từng tính năng, OPS-05 (frontend) và OPS-06 (E2E, hạ tầng test, CI). Nội dung bên dưới giữ nguyên từ lần review đầu.
 
 ### 2.1 Hiện trạng
 
@@ -136,7 +139,8 @@
 - Không có README ở gốc hay ở backend. README của frontend là template của Vite. Không có `.env.example`.
 - `seatify-backend/package.json:49`: lệnh seed là `npx tsx src/seed.ts`, nhưng `tsx` không có trong devDependencies (dự án đang dùng `ts-node`/`ts-node-dev`). `npx` sẽ tải `tsx` về khi chạy, nên vẫn chạy được, nhưng không ổn định và không nhất quán với phần còn lại.
 - Chưa có bước `prisma generate` trong build. Khi deploy lên nền tảng cloud, bước này thường phải khai báo riêng (ví dụ `"build": "prisma generate && tsc"`).
-- Hai repo git riêng nằm trong cùng một thư mục, không có file nào mô tả cách chạy chung.
+- Hai repo git riêng nằm trong cùng một thư mục, không có file nào mô tả cách chạy chung. *(Cập nhật 24/09/2026: thư mục gốc đã được gộp thành repo `seatify-clone`; xem OPS-07.)*
+- Xem thêm DOC-01, DOC-02 và OPS-07 (`12-TAI-LIEU.md`) về bộ tài liệu đầy đủ và việc thư mục gốc chưa được quản lý bằng git.
 - **Hướng xử lý:** viết README gồm yêu cầu cài đặt, các bước chạy (`npm i` → tạo `.env` từ `.env.example` → `prisma migrate dev` → `prisma db seed` → `npm run dev`), tài khoản demo (lấy từ env), và sơ đồ luồng ở `01-TONG-QUAN-VA-KIEN-TRUC.md`. Thêm một workflow CI tối thiểu: `npm ci` → `lint` → `build` → `test`.
 
 #### OPS-04: Logging và tác vụ nền
@@ -167,6 +171,11 @@
 | Kiểm tra env khi khởi động | Chưa đạt | ARCH-04 |
 | Test cho luồng đặt vé và thanh toán | Chưa đạt | OPS-01 |
 | README, `.env.example` | Chưa đạt | OPS-03 |
+| TypeScript `strict` ở frontend | Chưa đạt | CODE-04 |
+| Error boundary ở frontend | Chưa đạt | ARCH-12 |
+| Định dạng response và lỗi thống nhất | Chưa đạt | ARCH-03, ARCH-09 |
+| Tài liệu vận hành và runbook | Chưa đạt | DOC-02 |
+| Chính sách bảo mật, điều khoản | Chưa đạt | DOC-03 |
 | Mật khẩu hash bằng bcrypt | **Đạt** | |
 | API admin được bảo vệ ở backend | **Đạt** | |
 | Secret backend không bị commit | **Đạt** | |

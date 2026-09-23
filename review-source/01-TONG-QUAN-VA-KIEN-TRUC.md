@@ -17,8 +17,8 @@
 
 | Tầng | Công nghệ | Nhận xét |
 |---|---|---|
-| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, sonner, Swiper, lucide-react | Hiện đại, phù hợp với quy mô dự án |
-| Backend | Node.js, Express 5, TypeScript (strict) | Express 5 tự chuyển lỗi của async handler sang error middleware, nhưng dự án chưa tận dụng (ARCH-03) |
+| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4, sonner, Swiper, lucide-react; TypeScript **chưa bật strict** | Thư viện hiện đại. Chưa dùng data router, thư viện quản lý dữ liệu server hay thư viện validation (ARCH-12, ARCH-13, VAL-01, CODE-04) |
+| Backend | Node.js, Express 5, TypeScript (strict), biên dịch ra CommonJS | Express 5 tự chuyển lỗi của async handler sang error middleware, nhưng dự án chưa tận dụng (ARCH-03). Chưa chuyển sang ESM (ARCH-10) |
 | Database | PostgreSQL qua Prisma 5 | Hợp lý; chưa dùng `prisma migrate` (DB-01) |
 | Xác thực | JWT (`jsonwebtoken`), bcrypt | Đúng cơ bản |
 | Thanh toán | Stripe Checkout (tiền VND) | Xử lý đúng việc VND không có phần thập phân; khâu xác nhận thanh toán sai (SEC-01) |
@@ -146,6 +146,10 @@ Phía `TicketSeat` có vòng đời `AVAILABLE → HOLDING → BOOKED`. Ngoài r
 | Xử lý lỗi rời rạc | ARCH-03 | 17 khối `try/catch` gần giống nhau, mã HTTP tùy tiện |
 | Nạp biến môi trường nhờ thứ tự import | ARCH-04 | `dotenv.config()` "tình cờ" chạy trong `auth.middleware.ts` |
 | Rò rỉ tầng | ARCH-05 | `payment.controller.ts` gọi thẳng Prisma |
+| Backend tổ chức theo loại file, không có module và `shared` | ARCH-06, ARCH-08 | Chi tiết và cấu trúc đích ở `07-KIEN-TRUC-BACKEND-DE-XUAT.md` |
+| `server.ts` nhiều trách nhiệm; response không thống nhất; CommonJS | ARCH-07, ARCH-09, ARCH-10 | `07` |
+| Frontend phẳng, không có features, routing JSX, không error boundary | ARCH-11, ARCH-12 | `08-KIEN-TRUC-FRONTEND-DE-XUAT.md` |
+| Dữ liệu server quản lý thủ công, logic trong component, types phân tán | ARCH-13 → ARCH-16 | `08` |
 
 ### Coupling và khả năng mở rộng
 
@@ -154,7 +158,13 @@ Phía `TicketSeat` có vòng đời `AVAILABLE → HOLDING → BOOKED`. Ngoài r
 
 ### Mức độ phù hợp với quy mô
 
-Kiến trúc hiện tại **vừa đủ** cho dự án học tập và cả cho một rạp nhỏ chạy thật. Vấn đề của dự án **không nằm ở kiến trúc**. Nó nằm ở chỗ **quy tắc nghiệp vụ được đặt sai tầng** (frontend thay vì backend) và **thiếu kiểm tra ở ranh giới tin cậy**. Không nên viết lại dự án. Hãy sửa đúng các điểm đã nêu.
+**Cập nhật 24/09/2026.** Lần review đầu kết luận kiến trúc "vừa đủ". Kết luận này cần được làm rõ:
+
+- **Mẫu kiến trúc** (monolith phân tầng ở backend, SPA ở frontend) vẫn **đúng** với quy mô dự án. Không cần microservice, message queue hay framework khác.
+- **Cách tổ chức code** thì **chưa đủ sạch để mở rộng**. Backend nhóm theo loại file thay vì theo nghiệp vụ, hạ tầng không được tách thành thư viện nội bộ, response không thống nhất. Frontend không có tầng feature và hook, dữ liệu server được quản lý thủ công, component vừa là giao diện vừa là logic. Khi thêm nghiệp vụ (hoàn tiền, khuyến mãi, quản lý phòng, soát vé), chi phí sửa đổi sẽ tăng nhanh.
+- **Hướng đi:** tái cấu trúc **dần dần** sang modular monolith ở backend (`07`) và kiến trúc theo feature ở frontend (`08`), **sau khi** đã vá các lỗi Critical/High và có test bảo vệ. Đây là việc **sắp xếp lại** code hiện có, không phải viết lại từ đầu.
+
+Vấn đề nghiêm trọng nhất vẫn là **quy tắc nghiệp vụ đặt sai tầng** và **thiếu kiểm tra ở ranh giới tin cậy**, nên phải được sửa trước.
 
 ## 8. Điểm nghẽn và điểm lỗi đơn
 

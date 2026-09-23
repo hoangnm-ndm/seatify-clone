@@ -69,7 +69,7 @@
 | VAL-02 | Medium | Validation | FE và BE | Không có hợp đồng validation chung; 3 quy tắc mật khẩu khác nhau | Quy tắc lệch, bỏ qua được bằng cách gọi API trực tiếp | Schema zod cùng quy tắc ở hai phía, về sau dùng `packages/contracts` |
 | OPS-05 | Medium | Kiểm thử | `seatify-frontend` | Frontend không có test | Quy tắc chọn vé/ghế chưa được kiểm chứng | Vitest + Testing Library + MSW (`11`) |
 | OPS-06 | Medium | Kiểm thử | Cả hai repo | Không có E2E, không có hạ tầng test, không có CI | Luồng mua vé chưa từng được test tự động từ đầu đến cuối | Playwright + GitHub Actions |
-| OPS-07 | Low | Vận hành | Thư mục gốc `seatify/` | Hai repo tách rời; thư mục gốc (chứa CHECKLIST, review) không có git | CHECKLIST và tài liệu dùng chung không có lịch sử | Quyết định: monorepo / repo tài liệu / `git init` ở gốc (`12`) |
+| OPS-07 | Low | Vận hành | Thư mục gốc `seatify/` | Cách tổ chức repo chưa được quyết định rõ. Ngày 24/09 gốc đã thành repo `seatify-clone` (1 commit `init`), nhưng không mang theo 40 commit cũ và chưa có `.gitignore` gốc | Mất lịch sử và `git blame` nếu phát triển tiếp trên repo gộp; `.env` frontend vẫn bị commit | Chọn repo phát triển chính; nhập lịch sử bằng `git subtree`/`filter-repo`; thêm `.gitignore` gốc (`12`) |
 | DOC-01 | Medium | Tài liệu | Cả hai repo | Thiếu tài liệu cho người phát triển: README, env, API, kiến trúc, DB, quy ước | Người mới không chạy được dự án | `docs/developer/*` (`12`) |
 | DOC-02 | Medium | Tài liệu | – | Thiếu tài liệu vận hành: deploy, runbook sự cố thanh toán/email, sao lưu | Không có quy trình khi có sự cố thật | `docs/operations/*` |
 | DOC-03 | Medium | Tài liệu | `fe/components/Footer.tsx:52-63` | Không có chính sách bảo mật, điều khoản, chính sách hủy/hoàn tiền, FAQ, hướng dẫn admin | Footer hứa hẹn trang không tồn tại; thu thập dữ liệu cá nhân mà không có chính sách | Trang trong app + `docs/user/*` |
@@ -202,21 +202,16 @@
   - Hậu quả là mã HTTP bị gán tùy tiện: tạo phim thiếu dữ liệu trả **404** (`be/controllers/movie.controller.ts:53-57`); mọi lỗi của Stripe hay DB khi tạo link thanh toán trả **404** (`be/controllers/payment.controller.ts:41-42`); mất kết nối DB khi giữ ghế trả **400** (`be/controllers/booking.controller.ts:28-29`).
   - `be/controllers/showtime.controller.ts:29, 54, 93` và `movie.controller.ts:16` trả `error: error.message` về client. Thông báo lỗi của Prisma có tên bảng, tên cột và câu truy vấn.
   - Không có handler 404 cho route không tồn tại, và không có error middleware.
-- **Hướng xử lý:**
+- **Hướng xử lý (cập nhật 24/09/2026):** báo cáo lần 1 đề xuất `class AppError extends Error`. Đề xuất này **được thay thế** bằng factory function để tuân theo quy ước "không định nghĩa class":
   ```ts
-  // src/utils/AppError.ts
-  export class AppError extends Error {
-    constructor(public status: number, message: string) { super(message); }
-  }
-
-  // server.ts, đặt SAU mọi route
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (err instanceof AppError) return res.status(err.status).json({ message: err.message });
-    console.error(err);
-    res.status(500).json({ message: 'Lỗi hệ thống, vui lòng thử lại sau' });
-  });
+  // src/shared/utils/http-error.ts
+  export type HttpError = Error & { status: number; code: string; details?: unknown };
+  export const createHttpError = (status: number, code: string, message: string, details?: unknown): HttpError =>
+    Object.assign(new Error(message), { status, code, details });
+  export const notFound = (message = 'Không tìm thấy dữ liệu') => createHttpError(404, 'NOT_FOUND', message);
+  export const conflict = (code: string, message: string) => createHttpError(409, code, message);
   ```
-  Express 5 tự chuyển promise bị reject từ async handler vào middleware này, nên controller có thể **bỏ hết `try/catch`** và ngắn đi khoảng một nửa.
+  Kèm một `errorHandler` đặt **sau** mọi route, xử lý `HttpError`, `ZodError`, lỗi Prisma và lỗi lạ (trả 500, không lộ chi tiết). Chi tiết và định dạng response chuẩn ở `07-KIEN-TRUC-BACKEND-DE-XUAT.md`, mục 4.2–4.4. Express 5 tự chuyển promise bị reject từ async handler vào middleware này, nên controller có thể **bỏ hết `try/catch`** và ngắn đi khoảng một nửa.
 
 ### ARCH-04: Biến môi trường được nạp nhờ thứ tự import
 

@@ -1,78 +1,62 @@
 # 05. Lộ trình cải thiện
 
-> **Công sức:** S = dưới nửa ngày · M = 1–2 ngày · L = từ 3 ngày trở lên (ước lượng cho một người đang học).
-> Thứ tự bên dưới đã tính đến phụ thuộc giữa các việc. Ví dụ ARCH-01 làm trước vì mọi thay đổi sau đều đụng đến Prisma.
+> **Cập nhật 24/09/2026.** Danh sách việc chi tiết (có tiêu chí hoàn thành và được cập nhật liên tục) nằm ở **`../CHECKLIST.md`**. File này chỉ giải thích **thứ tự** và **lý do** của các giai đoạn, kèm danh sách những việc **không nên làm**.
 
-## Giai đoạn 1: Làm ngay (luồng mua vé phải đáng tin cậy)
+## 1. Tổng quan các giai đoạn
 
-Mục tiêu: sau giai đoạn này, **không ai lấy được vé mà không trả đúng số tiền**, và khách đã trả tiền thì luôn có ghế.
+```mermaid
+flowchart LR
+  G0["0. Nền móng<br/>repo, strict, ESM, env,<br/>app/server, test, migrate"] --> G1["1. Vá lỗi nghiêm trọng<br/>giá, thanh toán,<br/>trạng thái đơn"]
+  G1 --> G2["2. Backend modular<br/>shared + modules<br/>+ zod + response chuẩn"]
+  G1 --> G3["3. Frontend theo feature<br/>router, zustand,<br/>TanStack Query, zod form"]
+  G2 --> G4["4. Dữ liệu và<br/>hoàn thiện nghiệp vụ"]
+  G3 --> G4
+  G4 --> G5["5. Test phủ đủ + CI"]
+  G2 --> G6["6. Tài liệu"]
+  G3 --> G6
+  G5 -.-> G7["7. Khi tăng trưởng<br/>(chỉ khi có số liệu)"]
+```
 
-| # | Việc | Mã | Công sức |
+| Giai đoạn | Mục tiêu | Mã chính | Ước lượng công sức* |
 |---|---|---|---|
-| 1 | Tạo `src/lib/prisma.ts`, thay 8 chỗ `new PrismaClient()` | ARCH-01 | S |
-| 2 | Chuẩn bị test: tách `app.ts` khỏi `server.ts`, cài Vitest + supertest, tạo DB test. Viết **trước** test giữ ghế đồng thời và test "confirm khi chưa trả tiền" (test thứ hai sẽ chạy đỏ, chứng minh SEC-01 tồn tại) | OPS-01 | M |
-| 3 | Backend tự tính giá; frontend gửi `seats` + `tickets: { adult, student }`; giới hạn 8 ghế ở server | SEC-02, SEC-03 (một phần) | M |
-| 4 | Lưu `session.id` vào `gatewayTransactionId`; `confirm` lấy lại phiên từ Stripe, chỉ chốt khi `payment_status === 'paid'` và số tiền khớp | SEC-01, DB-03 | M |
-| 5 | Chốt đơn bằng update có điều kiện (`PENDING → SUCCESS`), kiểm tra ghế còn giữ, gửi email **sau** khi commit; gia hạn giữ ghế khi tạo phiên Stripe và đặt `expires_at` | ERR-01, ERR-05 | M |
-| 6 | Ẩn các tính năng giả lập (đổi mật khẩu, cập nhật hồ sơ, tạo tài khoản sau thanh toán), sửa nhãn VNPAY | ERR-04, ERR-08 | S |
-| 7 | Bỏ `rejectUnauthorized: false`; escape HTML trong email | SEC-06, SEC-07 | S |
+| 0. Nền móng | Có công cụ và cấu hình đúng trước khi sửa và di chuyển code | OPS-07, CODE-04, ARCH-10, ARCH-04, ARCH-01, ARCH-07, DB-01, OPS-02 | 3–4 ngày |
+| 1. Vá lỗi nghiêm trọng | Không ai lấy được vé mà không trả đúng tiền; khách đã trả tiền thì luôn có ghế | SEC-01, SEC-02, SEC-03, ERR-01, ERR-02, ERR-05, SEC-06, SEC-07, SEC-08 | 4–6 ngày |
+| 2. Backend modular | Code tổ chức theo nghiệp vụ; hạ tầng dùng chung; response, lỗi và validate thống nhất | ARCH-03, ARCH-05, ARCH-06, ARCH-08, ARCH-09, SEC-04, SEC-05, SEC-09, VAL-01 | 6–8 ngày |
+| 3. Frontend theo feature | Trang mỏng, logic nằm trong hook, dữ liệu server qua TanStack Query, form dùng zod | ARCH-11 → ARCH-16, CODE-05, CODE-06, VAL-01, VAL-02 | 8–10 ngày |
+| 4. Dữ liệu và nghiệp vụ | Lịch sử đơn đầy đủ, sơ đồ ghế lấy từ dữ liệu, bỏ tính năng giả lập | DB-02, DB-04, ARCH-02, ERR-04, OPS-04 | 5–7 ngày |
+| 5. Test và CI | Mọi luồng P0/P1 có test; CI chặn merge khi đỏ | OPS-01, OPS-05, OPS-06 | 4–6 ngày (một phần đã làm dần ở giai đoạn 1–3) |
+| 6. Tài liệu | Người mới, người vận hành và người dùng cuối đều có tài liệu | DOC-01, DOC-02, DOC-03 | 3–4 ngày |
+| 7. Tăng trưởng | Chỉ làm khi có số liệu | – | – |
 
-**Dấu hiệu hoàn thành:** test ở bước 2 chạy xanh; tự thử sửa `totalPrice` bằng Postman và mở thẳng URL success đều không lấy được vé.
+\* Ước lượng cho một người đang học, làm bán thời gian. Mục đích là để so sánh độ lớn giữa các giai đoạn, không phải để cam kết thời hạn.
 
-## Giai đoạn 2: Trước khi deploy thật
+## 2. Vì sao lại theo thứ tự này
 
-| # | Việc | Mã | Công sức |
-|---|---|---|---|
-| 8 | `import 'dotenv/config'` ở dòng đầu, file `config/env.ts` kiểm tra đủ biến môi trường khi khởi động | ARCH-04 | S |
-| 9 | Lớp `AppError` + error middleware + handler 404; bỏ `try/catch` lặp trong controller | ARCH-03 | M |
-| 10 | Validate bằng `zod` cho mọi endpoint ghi dữ liệu; thống nhất quy tắc mật khẩu FE/BE | SEC-09 | M |
-| 11 | `express-rate-limit` cho `/auth/*` và `/bookings/hold`; giới hạn số đơn `PENDING` theo email/IP; thông báo đăng nhập chung | SEC-03, SEC-08 | S |
-| 12 | Middleware `optionalAuth`; lấy `userId` từ token; kiểm tra chủ đơn khi xem/hủy; che thông tin cá nhân | SEC-04, SEC-05 | M |
-| 13 | Webhook `checkout.session.completed` / `expired`; trang success chỉ đọc trạng thái | SEC-01, ERR-01 (kịch bản 3) | M |
-| 14 | Kiểm tra trùng lịch khi tạo suất chiếu; tính `endTime` ở server | ERR-02 | S |
-| 15 | Định dạng giờ với `timeZone: 'Asia/Ho_Chi_Minh'`; tính khoảng ngày theo +07:00 | ERR-03 | S |
-| 16 | `prisma migrate dev --name init`, commit migrations; deploy bằng `migrate deploy` | DB-01 | S |
-| 17 | Chặn seed khi `NODE_ENV=production`; mật khẩu admin lấy từ env; thay dữ liệu cá nhân bằng dữ liệu giả | OPS-02 | S |
-| 18 | README, `.env.example` (backend và frontend); bỏ `.env` frontend khỏi git; `prisma generate` trong build | OPS-03, SEC-10 | S |
-| 19 | Bổ sung test cho hủy đơn, cron, phân quyền, tạo suất chiếu | OPS-01 | M |
+1. **Giai đoạn 0 trước tất cả.** Bật `strict` (CODE-04) trước khi di chuyển code frontend, để trình biên dịch phát hiện chỗ hỏng. Chuyển ESM (ARCH-10) trước khi tạo file mới, để không phải sửa import hai lần. Tách `app`/`server` (ARCH-07) và dựng hạ tầng test là điều kiện để viết được test cho giai đoạn 1.
+2. **Vá lỗi Critical/High trước khi tái cấu trúc.** Các lỗi này nhỏ, cục bộ, và **hiện đang cho phép lấy vé miễn phí**. Nếu chờ tái cấu trúc xong mới sửa thì lỗ hổng tồn tại thêm vài tuần mà không có lợi ích gì. Code đã vá sẽ được di chuyển nguyên trạng sang module mới ở giai đoạn 2, và test viết ở giai đoạn 1 sẽ bảo vệ việc di chuyển đó.
+3. **Backend và frontend có thể làm song song** sau giai đoạn 1. Tuy nhiên nên xong phần định dạng response và mã lỗi ở backend (mục 2.3, 2.4) trước khi viết `http-client` ở frontend (mục 3.3), để frontend dựa vào hợp đồng API đã ổn định.
+4. **Tái cấu trúc theo từng module/feature, không làm một lần.** Mỗi bước phải để hệ thống ở trạng thái chạy được, có test, rồi mới commit. Làm một lần cho tất cả với một dự án không có test là cách chắc chắn nhất để làm hỏng luồng giữ ghế, phần đang chạy tốt nhất của dự án.
+5. **Tài liệu viết dần, không để dồn cuối.** Giai đoạn 6 chỉ gom lại và hoàn thiện. README, `.env.example` và `conventions.md` đã có từ giai đoạn 0.
 
-## Giai đoạn 3: Phiên bản sau
-
-| Việc | Mã | Công sức |
-|---|---|---|
-| Bảng `BookingItem` lưu snapshot ghế và giá; không mất lịch sử khi nhả ghế | DB-02 | M |
-| API trả sơ đồ ghế đầy đủ (loại ghế, phụ thu, trạng thái); frontend vẽ theo dữ liệu; quy tắc ghế đôi bán theo cặp | ARCH-02 | M |
-| Tách `BookingPage` thành component con và hook; gom type về `fe/types/` | CODE-02 | M |
-| Thêm các index cần thiết | DB-04 | S |
-| Hàm `computeMovieStatus` dùng chung; update phim chỉ ghi trường được gửi; thêm `backdropUrl`, `movieContent` vào form admin | ERR-06, ERR-07 | S |
-| Chuyển truy vấn khỏi `payment.controller`; dùng chung `AuthRequest` | ARCH-05 | S |
-| Sửa toast trong lúc render ở `AdminRoute`; parse lỗi an toàn trong `apiClient` | ERR-09 | S |
-| Xóa code chết, route thử nghiệm; viết lại comment theo hướng "vì sao" | CODE-01, CODE-03 | S |
-| Làm thật các tính năng đang giả lập: cập nhật hồ sơ, đổi mật khẩu, tạo tài khoản từ đơn khách vãng lai | ERR-04 | M |
-| Admin: sửa/xóa suất chiếu (chặn khi đã có vé `BOOKED`), quản lý rạp và phòng | – | M |
-| Tự sinh QR bằng thư viện `qrcode`; lưu `emailSentAt`, có nút gửi lại vé | OPS-04 | S |
-
-## Giai đoạn 4: Khi hệ thống tăng trưởng
-
-**Chỉ làm khi có số liệu chứng minh là cần**:
-
-- Chuyển từ Gmail cá nhân sang dịch vụ email giao dịch (Resend, SendGrid, Amazon SES) khi số đơn mỗi ngày vượt hạn mức gửi của Gmail.
-- Logger có cấu trúc (`pino`) cùng công cụ theo dõi lỗi (Sentry) khi bắt đầu có người dùng thật (OPS-04).
-- Tách cron sang process hoặc worker riêng khi backend chạy nhiều instance.
-- Phân trang và tìm kiếm phía server cho `/movies` khi số phim lên đến hàng trăm.
-- Đưa việc gửi email vào hàng đợi có cơ chế thử lại khi lượng đơn lớn.
-- Cân nhắc lưu JWT trong cookie `httpOnly` (kèm chống CSRF) khi hệ thống có dữ liệu nhạy cảm hơn (SEC-11).
-
-## Những việc KHÔNG nên làm lúc này
+## 3. Những việc KHÔNG nên làm
 
 | Đừng làm | Vì sao |
 |---|---|
-| Viết lại bằng NestJS hoặc tách microservice | Kiến trúc phân tầng hiện tại đã đủ. Lỗi nằm ở **logic và ranh giới tin cậy**, đổi framework không giải quyết được |
-| Thêm Redis hoặc distributed lock cho việc giữ ghế | `SELECT … FOR UPDATE` của PostgreSQL **đã đúng và đủ** cho quy mô này. Thêm Redis là thêm một nơi có thể hỏng |
-| Chuyển sang optimistic locking, event sourcing, CQRS | Không có vấn đề nào trong báo cáo cần đến chúng |
-| Dockerize hoặc dùng Kubernetes trước khi có README, migration và test | Đóng gói một hệ thống chưa đúng chỉ làm việc sửa lỗi khó hơn |
-| Thêm Redux hoặc Zustand | Context kết hợp state cục bộ đang đủ dùng. Chưa có dấu hiệu prop drilling hay state phức tạp |
+| Viết lại bằng NestJS hoặc tách microservice | Modular monolith (giai đoạn 2) giải quyết được vấn đề tổ chức code. Lỗi nằm ở **logic và ranh giới tin cậy**, đổi framework không sửa được |
+| Thêm Redis hoặc distributed lock cho việc giữ ghế | `SELECT … FOR UPDATE` của PostgreSQL **đã đúng và đủ** cho quy mô này |
+| Redux Toolkit | zustand cho state phía client (auth, UI) cộng TanStack Query cho dữ liệu server là đủ |
+| Đưa dữ liệu server vào zustand | Hai nguồn sự thật cho cùng một dữ liệu. Dữ liệu server chỉ nằm trong cache của TanStack Query |
+| Tầng repository bọc Prisma, DI container, base controller, generic CRUD factory | Thêm file và thêm tầng mà không có lợi ích đo được với 6 module |
+| Định nghĩa `class` (kể cả `class AppError extends Error`) | Trái với quy ước dự án; factory function làm được cùng việc (`07`, mục 4.3) |
+| Monorepo **chỉ vì** muốn dùng chung schema | Chỉ gộp khi có đủ lý do (lịch sử CHECKLIST, CI chung, schema chung). Quyết định ở mục 0.1 |
+| Optimistic locking, event sourcing, CQRS | Không có vấn đề nào trong báo cáo cần đến chúng |
+| Dockerize hoặc Kubernetes trước khi xong giai đoạn 0 và 1 | Đóng gói một hệ thống chưa đúng chỉ làm việc sửa lỗi khó hơn |
 | Tối ưu hiệu năng frontend (memo, virtualization) | Chưa có dấu hiệu chậm; sơ đồ 180 ghế không cần virtualization |
-| Làm chức năng thiết kế sơ đồ phòng bằng kéo thả | Chỉ cần API trả sơ đồ (ARCH-02). Sơ đồ phòng hiếm khi thay đổi |
-| Tích hợp thêm VNPAY song song với Stripe | Hãy làm cho **một** cổng thanh toán chạy đúng trước |
-| Sửa lỗi hàng loạt mà không có test | Rất dễ làm hỏng luồng giữ ghế, phần đang chạy tốt nhất của dự án |
+| Tích hợp thêm VNPAY song song với Stripe | Làm cho **một** cổng thanh toán chạy đúng và có test trước |
+| Tạo `shared/ui` "cho đủ bộ" trước khi cần | Chỉ tạo component dùng chung khi gặp lần lặp thứ hai |
+| Sửa lỗi hàng loạt hoặc di chuyển code mà không có test | Không biết mình vừa làm hỏng thứ gì |
+
+## 4. Lịch sử thay đổi của file này
+
+- **23/09/2026:** tạo lộ trình 4 giai đoạn, tập trung vào các lỗi bảo mật và logic.
+- **24/09/2026:** mở rộng thành 8 giai đoạn khớp với `CHECKLIST.md`; bổ sung tái cấu trúc backend (modular, ESM, response chuẩn), frontend (feature, `createBrowserRouter`, zustand, TanStack Query), validation (zod), kiểm thử và tài liệu. **Sửa mục "không nên làm":** bản trước ghi "không thêm Zustand"; bản này chấp nhận zustand cho state phía client theo định hướng kiến trúc mới, nhưng giới hạn phạm vi sử dụng.

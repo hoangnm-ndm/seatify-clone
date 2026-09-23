@@ -54,7 +54,7 @@ Chỉ cần sửa SEC-01 là chuỗi này gãy ở bước 2.
      ```ts
      const session = await stripe.checkout.sessions.retrieve(booking.gatewayTransactionId!);
      if (session.payment_status !== 'paid' || session.amount_total !== booking.totalPrice) {
-       throw new AppError(402, 'Đơn hàng chưa được thanh toán');
+       throw createHttpError(402, 'PAYMENT_NOT_COMPLETED', 'Đơn hàng chưa được thanh toán');
      }
      ```
   2. **Cách chuẩn:** thêm webhook `checkout.session.completed`, xác minh chữ ký bằng `stripe.webhooks.constructEvent`. Route webhook cần raw body nên phải đăng ký **trước** `app.use(express.json())`. Webhook là nguồn sự thật. Trang success chỉ **đọc** trạng thái đơn chứ không **ghi**. Cách này xử lý được cả trường hợp khách đóng tab (ERR-01, kịch bản 3).
@@ -122,7 +122,7 @@ Chỉ cần sửa SEC-01 là chuỗi này gãy ở bước 2.
   - `be/controllers/movie.controller.ts:47`: truyền nguyên `req.body` vào service. Thiếu `title` sẽ gây lỗi Prisma và client nhận mã **404**.
   - `be/controllers/booking.controller.ts:17`: không kiểm tra `seatNames` có phải mảng chuỗi dạng `A1` không, cũng không kiểm tra email khách.
   - Có **ba quy tắc mật khẩu khác nhau**: đăng ký ở frontend yêu cầu ít nhất 8 ký tự gồm chữ và số (`fe/components/AuthModal.tsx:38`), form tạo tài khoản sau thanh toán yêu cầu 6 ký tự, còn backend không yêu cầu gì. Regex `[A-Za-z\d]{8,}` còn **cấm ký tự đặc biệt**, nên từ chối cả mật khẩu mạnh như `Abc123!@`.
-- **Hướng xử lý:** dùng `zod`, mỗi endpoint một schema, kèm một middleware `validate(schema)`. Validate ở frontend phục vụ trải nghiệm người dùng; **validate ở backend mới là để bảo vệ hệ thống**.
+- **Hướng xử lý:** dùng `zod`, mỗi endpoint một schema, kèm một middleware `validate(schema)`. Validate ở frontend phục vụ trải nghiệm người dùng; **validate ở backend mới là để bảo vệ hệ thống**. Kiểm kê đầy đủ từng form, từng endpoint cùng mẫu schema dùng chung ở `10-VALIDATION-VA-FORM.md` (VAL-01, VAL-02).
 
 #### SEC-10: `.env` của frontend bị commit
 

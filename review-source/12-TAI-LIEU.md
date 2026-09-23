@@ -8,7 +8,7 @@
 |---|---|---|
 | **Người phát triển** | `seatify-frontend/README.md` là template mặc định của Vite, không nói gì về Seatify. Comment trong code (chất lượng thấp, xem CODE-03). Commit message rõ ràng | **Thiếu hoàn toàn** tài liệu về dự án |
 | **Người vận hành** (deploy, xử lý sự cố) | Không có | **Thiếu hoàn toàn** |
-| **Người dùng cuối** (khách mua vé, admin) | Popup quy định vé HSSV trong trang đặt vé (`seatify-frontend/src/pages/BookingPage.tsx:621-650`); dòng hướng dẫn "kiểm tra hộp thư Spam" ở trang thanh toán thành công | **Gần như thiếu hoàn toàn.** Footer có mục FAQ, Chính sách bảo mật, Điều khoản, Liên hệ nhưng **không trang nào tồn tại** |
+| **Người dùng cuối** (khách mua vé, admin) | Popup quy định vé HSSV trong trang đặt vé (`seatify-frontend/src/pages/BookingPage.tsx:621-661`); dòng hướng dẫn "kiểm tra hộp thư Spam" ở trang thanh toán thành công | **Gần như thiếu hoàn toàn.** Footer có mục FAQ, Chính sách bảo mật, Điều khoản, Liên hệ nhưng **không trang nào tồn tại** |
 
 ## 2. Vấn đề chi tiết
 
@@ -48,15 +48,20 @@
   - **Hướng dẫn cho admin:** cách thêm phim, tạo suất chiếu, những điều cần tránh (trùng lịch, sửa phim đang có suất chiếu).
 - **Ảnh hưởng:** Footer hứa hẹn các trang không tồn tại (CODE-05); khách không có thông tin khi gặp sự cố; hệ thống thu thập dữ liệu cá nhân mà không công bố chính sách.
 
-### OPS-07: Hai repo tách rời, thư mục gốc không được quản lý phiên bản
+### OPS-07: Cách tổ chức repo chưa được quyết định rõ
 
 - **Mức độ:** Low · **Độ chắc chắn:** Đã xác nhận
-- **Bằng chứng:** `seatify-backend/` và `seatify-frontend/` là hai repo git độc lập. Thư mục gốc `seatify/`, nơi đặt `review-source/` và `CHECKLIST.md`, **không phải repo git**.
-- **Ảnh hưởng:** `CHECKLIST.md`, `review-source/` và tài liệu dùng chung (kiến trúc tổng thể, hợp đồng API) không có lịch sử thay đổi, dễ mất và khó chia sẻ. Không dùng chung được schema zod (VAL-02) hay CI.
-- **Hướng xử lý (cần quyết định):**
-  - **Phương án A:** gộp thành monorepo (`apps/backend`, `apps/frontend`, `packages/contracts`, `docs/`), giữ lịch sử của cả hai repo bằng `git subtree` hoặc `git filter-repo`. Phù hợp nếu dự án tiếp tục phát triển lâu dài.
-  - **Phương án B:** giữ hai repo; tạo repo thứ ba `seatify-docs` cho CHECKLIST và tài liệu dùng chung. Đơn giản hơn nhưng vẫn không dùng chung được code.
-  - **Phương án C (tối thiểu):** chạy `git init` ở thư mục gốc chỉ để quản lý CHECKLIST và tài liệu, bỏ qua hai thư mục con bằng `.gitignore`.
+- **Hiện trạng (cập nhật 24/09/2026):**
+  - **Lúc review lần 1 (23/09):** `seatify-backend/` và `seatify-frontend/` là **hai repo git độc lập**, mỗi repo 20 commit. Thư mục gốc không có git.
+  - **Trong lúc review bổ sung (24/09, 00:17):** thư mục gốc được khởi tạo thành repo `seatify-clone` (remote `origin` → `github.com:hoangnm-ndm/seatify-clone`), gồm **một commit duy nhất** `76f17e0 init`. Hai thư mục `.git` con **không còn**. `review-source/` đã được đưa vào repo này.
+- **Ý nghĩa:** vấn đề "CHECKLIST và báo cáo không có lịch sử" **đã được giải quyết một phần** trong bản sao dùng để review. Tuy vậy, vẫn còn các điểm cần quyết định:
+  1. **40 commit của học viên không có trong repo mới.** Mọi mã commit được trích dẫn trong báo cáo (`c604410`, `8475639`, `da54a90`…) thuộc hai repo gốc. Nếu phát triển tiếp trên repo gộp thì sẽ mất `git log`/`git blame` của toàn bộ quá trình trước đó.
+  2. **Chưa có `.gitignore` ở gốc.** Các file `.gitignore` trong từng thư mục con vẫn có hiệu lực, nhưng `seatify-frontend/.env` **tiếp tục bị commit** vào repo mới (SEC-10).
+  3. **Repo nào là nơi phát triển chính** (repo gốc của học viên hay `seatify-clone`) chưa được ghi lại ở đâu.
+- **Hướng xử lý:**
+  - Nếu **`seatify-clone` là nơi phát triển tiếp:** nhập lịch sử cũ bằng `git subtree add --prefix=seatify-backend <repo-cũ> main` (tương tự cho frontend), hoặc dùng `git filter-repo` để giữ `git blame`. Thêm `.gitignore` ở gốc. Khi cần dùng chung schema zod (VAL-02) thì cấu hình npm workspaces (`apps/*`, `packages/*`).
+  - Nếu **học viên tiếp tục trên hai repo gốc:** coi `seatify-clone` là repo theo dõi review. Khi đó `CHECKLIST.md` và `review-source/` sống ở đây, còn code sống ở hai repo kia. Cần ghi rõ quy ước này trong README của `seatify-clone`.
+  - Dù chọn phương án nào, hãy ghi quyết định vào **Nhật ký** của `CHECKLIST.md` (mục 0.1).
 
 ## 3. Cấu trúc tài liệu đề xuất
 
