@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+.swiper-button-next,
+.swiper-button-prev {
+  color: #ffffff !important;
+
+  --swiper-navigation-size: 24px !important;
+
+  width: 40px !important;
+  height: 40px !important;
+
+  background: transparent !important;
+}

@@ -1,0 +1,166 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------
+// NHÓM 1: IDENTITY DATA
+// ------------------------------------------------------
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  fullName  String
+  birthDay  DateTime 
+  phone     String
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+
+  bookings  Booking[] // Mối quan hệ 1-N với Bookings
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ------------------------------------------------------
+// NHÓM 2: MASTER DATA
+// ------------------------------------------------------
+model Cinema {
+  id       String @id @default(uuid())
+  name     String
+  location String
+  city     String
+
+  rooms    Room[]
+}
+
+model Room {
+  id         String @id @default(uuid())
+  name       String
+  totalSeats Int
+  cinemaId   String
+  
+  cinema     Cinema @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
+  
+  seats      Seat[]
+  showtimes  Showtime[]
+}
+
+model Seat {
+  id       String   @id @default(uuid())
+  row      String
+  number   Int
+  type     SeatType @default(NORMAL)
+  roomId   String
+  
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  ticketSeats TicketSeat[]
+
+  // Ràng buộc: Trong 1 phòng không có 2 ghế trùng tên (VD: 2 ghế A1)
+  @@unique([roomId, row, number])
+}
+
+enum SeatType {
+  NORMAL
+  VIP
+  COUPLE
+}
+
+model Movie {
+  id           String      @id @default(uuid())
+  title        String
+  description  String?
+  movieContent String?
+  backdropUrl  String?
+  posterUrl    String?
+  trailerUrl   String?  
+  filmGenres   String?
+  duration     Int
+  ageRating    String
+  createdAt    DateTime    @default(now())
+  
+  director     String?
+  cast         String?
+  country      String?
+  language     String?
+  releaseDate  DateTime?
+  endDate      DateTime?  
+
+  showtimes    Showtime[]
+}
+
+
+// ------------------------------------------------------
+// NHÓM 3: TRANSACTIONAL DATA (CORE)
+// ------------------------------------------------------
+model Showtime {
+  id        String   @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  movieId   String
+  roomId    String
+  
+  movie     Movie    @relation(fields: [movieId], references: [id])
+  room      Room     @relation(fields: [roomId], references: [id])
+  
+  ticketSeats TicketSeat[]
+}
+
+model Booking {
+  id                   String        @id @default(uuid())
+  guestName            String?
+  guestEmail           String?
+  guestPhone           String?
+  totalPrice           Int
+  status               BookingStatus @default(PENDING)
+  paymentMethod        String?
+  gatewayTransactionId String?
+  createdAt            DateTime      @default(now())
+  
+  userId               String?
+  user                 User?         @relation(fields: [userId], references: [id])
+
+  ticketSeats          TicketSeat[]
+}
+
+enum BookingStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model TicketSeat {
+  id          String       @id @default(uuid())
+  price       Int
+  status      TicketStatus @default(AVAILABLE)
+  lockedUntil DateTime?
+  
+  showtimeId  String
+  seatId      String
+  bookingId   String?
+  
+  showtime    Showtime     @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
+  seat        Seat         @relation(fields: [seatId], references: [id])
+  booking     Booking?     @relation(fields: [bookingId], references: [id])
+
+  // Ràng buộc cốt lõi: 1 Suất chiếu + 1 Ghế = Chỉ 1 Vé duy nhất
+  @@unique([showtimeId, seatId])
+}
+
+enum TicketStatus {
+  AVAILABLE
+  HOLDING
+  BOOKED
+}
